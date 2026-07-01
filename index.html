@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Existencias en Camioneta — SOSER Mantención</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --asphalt:#1c2128;
+    --asphalt-2:#262d37;
+    --steel:#3d5a80;
+    --paper:#f4f1ea;
+    --paper-2:#ffffff;
+    --orange:#ff6a13;
+    --orange-dark:#d9560a;
+    --green:#2d9d63;
+    --red:#d64545;
+    --grey-line:#d8d3c6;
+    --ink:#1c2128;
+    --ink-soft:#5a6270;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+    padding-bottom:40px;
+  }
+  .topbar{
+    background:var(--asphalt);
+    color:var(--paper);
+    padding:18px 20px 16px;
+    position:sticky;
+    top:0;
+    z-index:50;
+    box-shadow:0 2px 10px rgba(0,0,0,.25);
+  }
+  .topbar-inner{
+    max-width:760px;
+    margin:0 auto;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .brand-tag{
+    background:var(--orange);
+    color:var(--asphalt);
+    font-weight:800;
+    font-size:11px;
+    letter-spacing:.08em;
+    padding:4px 8px;
+    border-radius:4px;
+    transform:rotate(-2deg);
+  }
+  .brand h1{
+    font-size:16px;
+    margin:0;
+    font-weight:700;
+    letter-spacing:.01em;
+  }
+  .brand p{
+    margin:1px 0 0;
+    font-size:11.5px;
+    color:#aab1bd;
+  }
+  .tabs{
+    display:flex;
+    gap:6px;
+  }
+  .tab-btn{
+    background:transparent;
+    border:1.5px solid #444c58;
+    color:#c4cad4;
+    padding:7px 12px;
+    border-radius:8px;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+    transition:.15s;
+  }
+  .tab-btn.active{
+    background:var(--orange);
+    border-color:var(--orange);
+    color:var(--asphalt);
+  }
+  .wrap{
+    max-width:760px;
+    margin:0 auto;
+    padding:18px 16px 0;
+  }
+
+  /* ---- step card ---- */
+  .card{
+    background:var(--paper-2);
+    border:1px solid var(--grey-line);
+    border-radius:14px;
+    padding:18px;
+    margin-bottom:16px;
+    box-shadow:0 1px 3px rgba(28,33,40,.05);
+  }
+  .step-label{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:12px;
+  }
+  .step-num{
+    width:22px;height:22px;
+    border-radius:50%;
+    background:var(--asphalt);
+    color:var(--paper);
+    font-size:12px;
+    font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .step-label h2{
+    font-size:13.5px;
+    margin:0;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--ink-soft);
+    font-weight:700;
+  }
+
+  .chofer-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:10px;
+  }
+  .chofer-btn{
+    border:2px solid var(--grey-line);
+    background:var(--paper);
+    border-radius:12px;
+    padding:14px 10px;
+    text-align:center;
+    cursor:pointer;
+    transition:.15s;
+    font-weight:700;
+    font-size:14px;
+    color:var(--ink);
+    position:relative;
+  }
+  .chofer-btn .sub{
+    display:block;
+    font-weight:500;
+    font-size:11px;
+    color:var(--ink-soft);
+    margin-top:3px;
+  }
+  .chofer-btn:hover{border-color:var(--steel);}
+  .chofer-btn.active{
+    background:var(--asphalt);
+    border-color:var(--asphalt);
+    color:var(--paper);
+  }
+  .chofer-btn.active .sub{color:#b9bfca;}
+
+  .search-box{
+    position:relative;
+  }
+  .search-box input{
+    width:100%;
+    padding:13px 14px;
+    border:2px solid var(--grey-line);
+    border-radius:10px;
+    font-size:15px;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  .search-box input:focus{
+    outline:none;
+    border-color:var(--orange);
+    background:var(--paper-2);
+  }
+  .search-box input:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+  }
+  .results{
+    margin-top:8px;
+    border:1px solid var(--grey-line);
+    border-radius:10px;
+    overflow:hidden;
+    max-height:280px;
+    overflow-y:auto;
+    display:none;
+  }
+  .results.show{display:block;}
+  .result-item{
+    padding:11px 13px;
+    border-bottom:1px solid var(--grey-line);
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+  }
+  .result-item:last-child{border-bottom:none;}
+  .result-item:hover{background:#fff1e6;}
+  .result-item .name{
+    font-size:13.5px;
+    font-weight:600;
+  }
+  .result-item .meta{
+    font-size:11px;
+    color:var(--ink-soft);
+    margin-top:2px;
+  }
+  .result-item .qty{
+    font-family:'Courier New',monospace;
+    font-weight:700;
+    font-size:13px;
+    background:var(--paper);
+    border:1px solid var(--grey-line);
+    border-radius:6px;
+    padding:3px 8px;
+    white-space:nowrap;
+    flex-shrink:0;
+  }
+  .result-item.already .qty{
+    background:#e3f4ea;
+    border-color:var(--green);
+    color:var(--green);
+  }
+  .no-results{
+    padding:16px;
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:13px;
+  }
+
+  /* selected article panel */
+  .selected-panel{
+    margin-top:14px;
+    border:2px solid var(--asphalt);
+    border-radius:12px;
+    padding:14px;
+    background:#fffaf3;
+    display:none;
+  }
+  .selected-panel.show{display:block;}
+  .selected-panel .art-name{
+    font-weight:700;
+    font-size:15px;
+    margin-bottom:2px;
+  }
+  .selected-panel .art-meta{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    margin-bottom:12px;
+  }
+  .panel-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-bottom:12px;
+  }
+  .field{
+    background:var(--paper);
+    border-radius:10px;
+    padding:10px 12px;
+    border:1px solid var(--grey-line);
+  }
+  .field label{
+    display:block;
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--ink-soft);
+    font-weight:700;
+    margin-bottom:5px;
+  }
+  .field .disp-value{
+    font-family:'Courier New',monospace;
+    font-size:20px;
+    font-weight:800;
+  }
+  .field input[type=number]{
+    width:100%;
+    border:none;
+    background:transparent;
+    font-family:'Courier New',monospace;
+    font-size:20px;
+    font-weight:800;
+    color:var(--steel);
+    padding:0;
+  }
+  .field input[type=number]:focus{outline:none;}
+  .panel-actions{
+    display:flex;
+    gap:8px;
+  }
+  .btn{
+    border:none;
+    border-radius:9px;
+    padding:11px 16px;
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+    transition:.15s;
+  }
+  .btn-primary{
+    background:var(--orange);
+    color:var(--asphalt);
+    flex:1;
+  }
+  .btn-primary:hover{background:var(--orange-dark);}
+  .btn-secondary{
+    background:transparent;
+    border:1.5px solid var(--grey-line);
+    color:var(--ink-soft);
+  }
+  .btn-secondary:hover{border-color:var(--ink-soft);}
+
+  /* hallazgos list */
+  .hallazgo-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:10px 0;
+    border-bottom:1px solid var(--grey-line);
+    gap:10px;
+  }
+  .hallazgo-row:last-child{border-bottom:none;}
+  .hallazgo-info{flex:1; min-width:0;}
+  .hallazgo-info .nm{font-weight:600; font-size:13.5px;}
+  .hallazgo-info .mt{font-size:11px; color:var(--ink-soft);}
+  .hallazgo-nums{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+  }
+  .pill{
+    font-family:'Courier New',monospace;
+    font-weight:700;
+    font-size:12.5px;
+    padding:4px 9px;
+    border-radius:7px;
+    white-space:nowrap;
+  }
+  .pill-disp{background:#eceff3; color:var(--ink-soft);}
+  .pill-found{background:#eaf1fb; color:var(--steel);}
+  .pill-diff-ok{background:#e3f4ea; color:var(--green);}
+  .pill-diff-bad{background:#fbe7e7; color:var(--red);}
+  .del-btn{
+    background:none;border:none;color:#b8bdc6;font-size:18px;cursor:pointer;line-height:1;padding:2px 4px;
+  }
+  .del-btn:hover{color:var(--red);}
+
+  .empty-state{
+    text-align:center;
+    padding:30px 10px;
+    color:var(--ink-soft);
+    font-size:13.5px;
+  }
+
+  /* summary strip */
+  .summary-strip{
+    display:flex;
+    gap:10px;
+    margin-bottom:16px;
+  }
+  .sum-box{
+    flex:1;
+    background:var(--asphalt);
+    color:var(--paper);
+    border-radius:12px;
+    padding:12px 14px;
+    text-align:center;
+  }
+  .sum-box .n{
+    font-family:'Courier New',monospace;
+    font-size:22px;
+    font-weight:800;
+  }
+  .sum-box .l{
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:#aab1bd;
+    margin-top:2px;
+  }
+  .sum-box.warn{background:var(--red);}
+  .sum-box.warn .l{color:#ffd9d9;}
+  .sum-box.ok{background:var(--green);}
+  .sum-box.ok .l{color:#d6f3e3;}
+
+  /* comparison table */
+  table.comp{
+    width:100%;
+    border-collapse:collapse;
+    font-size:12.5px;
+  }
+  table.comp th{
+    text-align:left;
+    padding:8px 8px;
+    border-bottom:2px solid var(--asphalt);
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--ink-soft);
+  }
+  table.comp td{
+    padding:8px 8px;
+    border-bottom:1px solid var(--grey-line);
+  }
+  table.comp tr.missing{background:#fdf2f2;}
+  table.comp tr.extra{background:#f0f6fc;}
+  .badge{
+    font-size:10px;
+    font-weight:700;
+    padding:2px 7px;
+    border-radius:6px;
+  }
+  .badge-ok{background:#e3f4ea;color:var(--green);}
+  .badge-missing{background:#fbe7e7;color:var(--red);}
+  .badge-extra{background:#eaf1fb;color:var(--steel);}
+  .badge-pending{background:#f1efe8;color:var(--ink-soft);}
+
+  .filter-row{
+    display:flex;
+    gap:8px;
+    margin-bottom:12px;
+    flex-wrap:wrap;
+  }
+  .filter-chip{
+    border:1.5px solid var(--grey-line);
+    background:var(--paper);
+    border-radius:20px;
+    padding:6px 13px;
+    font-size:12px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .filter-chip.active{
+    background:var(--asphalt);
+    color:var(--paper);
+    border-color:var(--asphalt);
+  }
+
+  .export-bar{
+    display:flex;
+    gap:10px;
+    margin-top:14px;
+  }
+  .section-title{
+    font-size:13.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--ink-soft);
+    margin:0 0 12px;
+  }
+  .reset-link{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    text-align:center;
+    margin-top:10px;
+    cursor:pointer;
+    text-decoration:underline;
+  }
+  ::-webkit-scrollbar{width:6px;}
+  ::-webkit-scrollbar-thumb{background:var(--grey-line);border-radius:3px;}
+  .hidden{display:none !important;}
+
+  @media(max-width:480px){
+    .panel-grid{grid-template-columns:1fr;}
+    .brand p{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <span class="brand-tag">SOSER</span>
+      <div>
+        <h1>Control de Existencias</h1>
+        <p>Cotejo de despacho vs. camioneta</p>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="buscar" onclick="switchTab('buscar')">Buscar</button>
+      <button class="tab-btn" data-tab="comparar" onclick="switchTab('comparar')">Comparación</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ===================== TAB: BUSCAR ===================== -->
+  <div id="tab-buscar">
+
+    <div class="card">
+      <div class="step-label">
+        <div class="step-num">1</div>
+        <h2>Elige el chofer</h2>
+      </div>
+      <div class="chofer-grid" id="choferGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="step-label">
+        <div class="step-num">2</div>
+        <h2>Busca el artículo</h2>
+      </div>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Selecciona un chofer primero..." disabled autocomplete="off">
+        <div class="results" id="resultsBox"></div>
+      </div>
+
+      <div class="selected-panel" id="selectedPanel">
+        <div class="art-name" id="selArtName"></div>
+        <div class="art-meta" id="selArtMeta"></div>
+        <div class="panel-grid">
+          <div class="field">
+            <label>Despachado (sistema)</label>
+            <div class="disp-value" id="selDespachado">0</div>
+          </div>
+          <div class="field">
+            <label>Encontrado en camioneta</label>
+            <input type="number" id="selEncontrado" min="0" placeholder="0" inputmode="numeric">
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-primary" onclick="guardarHallazgo()">Guardar hallazgo</button>
+          <button class="btn btn-secondary" onclick="cerrarPanel()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="hallazgosCard">
+      <div class="step-label">
+        <div class="step-num">3</div>
+        <h2>Hallazgos registrados <span id="hallazgosCount" style="color:var(--ink-soft);font-weight:500;text-transform:none;letter-spacing:0;"></span></h2>
+      </div>
+      <div id="hallazgosList">
+        <div class="empty-state">Aún no registras hallazgos para este chofer.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===================== TAB: COMPARAR ===================== -->
+  <div id="tab-comparar" class="hidden">
+
+    <div class="summary-strip" id="summaryStrip"></div>
+
+    <div class="card">
+      <p class="section-title">Lista original (despachado) vs. hallazgos (camioneta)</p>
+      <div class="filter-row" id="compFilterChofer"></div>
+      <div class="filter-row" id="compFilterEstado"></div>
+      <div style="overflow-x:auto;">
+        <table class="comp" id="compTable">
+          <thead>
+            <tr>
+              <th>Chofer</th>
+              <th>Artículo</th>
+              <th>Cod</th>
+              <th>Despachado</th>
+              <th>Encontrado</th>
+              <th>Diferencia</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="compTableBody"></tbody>
+        </table>
+      </div>
+      <div class="export-bar">
+        <button class="btn btn-primary" style="flex:1" onclick="exportarExcel()">⬇ Descargar Excel (2 hojas)</button>
+      </div>
+      <div class="reset-link" onclick="resetearTodo()">Borrar todos los hallazgos y empezar de nuevo</div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+const PRODUCTS = [{"chofer": "ERIK ZAPATA", "articulo": "A02 LLAVE DE COMBINACION LAVAPLATO", "despachado": 14, "cod": "8927_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "A05 LLAVE MONOMANDO LAVAPLATO", "despachado": 14, "cod": "8930_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "A06 LLAVE MONOMANDO LAVAMANO SIMPLE", "despachado": 8, "cod": "8931_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "A09 LLAVE DE PASO AGUA SO-SO 1/2", "despachado": 5, "cod": "8934_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "A10 LLAVE LAVAMANO SIMPLE", "despachado": 10, "cod": "8935_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "A12 LLAVE DE PASO SO-SO 3/4", "despachado": 5, "cod": "8937_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "A14 FLEXIBLE AGUA 1/2 HI HE 40 CM", "despachado": 5, "cod": "8939_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "A15 FLEXIBLE AGUA 1/2 HI HI 40 CM", "despachado": 5, "cod": "8940_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "ABRAZADERA 1/2", "despachado": 10, "cod": "9468_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "C01 PASTA DE SOLDAR", "despachado": 2, "cod": "8949_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "C02 SOLDADURA DE PLATA 6%", "despachado": 6, "cod": "8950_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "C03 SOLDADURA ESTAÑO", "despachado": 1, "cod": "8951_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "C05 SILICONA BLANCA", "despachado": 9, "cod": "8953_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "C06 SILICONA ALTA TEMPERATURA", "despachado": 5, "cod": "8954_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "C07 TEFLON GAS", "despachado": 3, "cod": "8955_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "C09 HUINCHA AISLADORA", "despachado": 5, "cod": "8957_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "C25 LIJA METAL", "despachado": 5, "cod": "8973_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "C28 AMARRAS PLASTICAS 300mm", "despachado": 100, "cod": "8976_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "C29 BALON GAS 190G", "despachado": 1, "cod": "8977_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "CUELLO CISNE LAVAFONDO STANDARD 3/4", "despachado": 5, "cod": "10063_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "DESAGUE UTILITY", "despachado": 13, "cod": "9454_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "E01 EXTRACTORES DE AIRE 4", "despachado": 2, "cod": "8980_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "E02 EXTRACTORES DE AIRE 6", "despachado": 2, "cod": "8981_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "E03 EXTRACTORES DE AIRE 8", "despachado": 2, "cod": "8982_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "E07 CORDON TRIPLE", "despachado": 30, "cod": "8986_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "E09 CAJA CHUQUI", "despachado": 5, "cod": "8988_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "E15 INTERRUPTOR SIMPLE EMBUTIDO", "despachado": 5, "cod": "8994_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "E17 INTERRUPTOR DOBLE EMBUTIDO", "despachado": 5, "cod": "8996_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "E19 INTERRUPTOR TRIPLE EMBUTIDO", "despachado": 5, "cod": "8998_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "E21 EQUIPO ESTANCO LED DOBLE 120CM", "despachado": 3, "cod": "9000_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "E22 PANEL LED (REDONDO/CUADRADO)", "despachado": 10, "cod": "9001_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "E23 TUBO LED 9W 60cm.", "despachado": 15, "cod": "9002_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "E24 TUBO LED 18W 120cm.", "despachado": 15, "cod": "9003_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "ESCUADRA METALICA 50X50", "despachado": 30, "cod": "10064_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "F03 TARUGO PLASTICO 6MM", "despachado": 3, "cod": "9006_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "F05 CANCAMO ABIERTO", "despachado": 4, "cod": "9008_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "FLEXIBLE GAS HI-HI 1/2\" 100 CM", "despachado": 6, "cod": "2115_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "FLOWSWITCH CON DESPICHE", "despachado": 3, "cod": "10065_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "FUNDENTE ARGENTA 50GR", "despachado": 2, "cod": "10066_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "G01 CODO BRONCE 1/2 SO HE", "despachado": 10, "cod": "9015_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "G02 CODO BRONCE 1/2 SO SO", "despachado": 10, "cod": "9016_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "G03 CODO BRONCE 1/2 SO HI", "despachado": 10, "cod": "9017_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "G07 COPLA BRONCE 1/2 SO SO", "despachado": 5, "cod": "9021_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "G09 TEE BRONCE 1/2 SO", "despachado": 10, "cod": "9023_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "G12 TERMINAL BRONCE SO HE 1/2", "despachado": 10, "cod": "9026_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "G13 TERMINAL SO HI 1/2", "despachado": 10, "cod": "9027_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "G14 CODO BRONCE 1/2 HI HE", "despachado": 10, "cod": "9028_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "G22 FLEXIBLE GAS 1/2 60CM HI HI", "despachado": 5, "cod": "9036_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "G23 LLAVE DE PASO GAS HI HE RECTA 1/2", "despachado": 5, "cod": "9037_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "G24 REGULADOR GAS 45K", "despachado": 1, "cod": "9038_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "G25 PILAS ALCALINAS D", "despachado": 30, "cod": "9039_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "G28 UNION AMERICANA 1/2", "despachado": 5, "cod": "9042_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "G29 CAÑERIA DE COBRE", "despachado": 3, "cod": "9043_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "G30 FLEXIBLE REGULADOR GAS 45", "despachado": 5, "cod": "9044_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "M05 MALLA MOSQUITERA FIBRA (1 rollo= 3000 Cm)", "despachado": 3, "cod": "9054_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "M06 BISAGRA PUERTA 2.5 MM", "despachado": 10, "cod": "9055_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "M07 TIRADOR PUERTA", "despachado": 10, "cod": "9056_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "MEMBRANA MADEMSA", "despachado": 1, "cod": "10072_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "P05 SPRAY PINTURA GRIS", "despachado": 10, "cod": "9065_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "P06 SPRAY NEGRO ALTA TEMPERATURA", "despachado": 10, "cod": "9066_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "P07 SPRAY ALUMINIO ALTA TEMPERATURA", "despachado": 10, "cod": "9067_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "P08 SPRAY PINTURA AMARILLO", "despachado": 3, "cod": "9068_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "PUNTA PHILLIPS CORTA", "despachado": 1, "cod": "10074_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "PUNTA PHILLIPS LARGA", "despachado": 1, "cod": "10073_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "S02 SIFON RECTO LAVAFONDO", "despachado": 10, "cod": "9076_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "S05 DESAGUE LAVAFONDO", "despachado": 5, "cod": "9079_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "S07 TUBERIA PVC DE 40 MM", "despachado": 3, "cod": "9081_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "S09 CODO SANITARIO PVC 40X87", "despachado": 10, "cod": "9083_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "S10 COPLA PVC 40 MM", "despachado": 10, "cod": "9084_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "S16 TEE PVC 40MM", "despachado": 10, "cod": "9090_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "S21 KIT LLAVE ANGULAR CON FLEX", "despachado": 5, "cod": "9095_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "ERIK ZAPATA", "articulo": "S22 TAPA WC", "despachado": 8, "cod": "9096_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "SIFON 1 1/2'' SALIDA RECTA", "despachado": 5, "cod": "9727_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "SIFON LAVAMANOS 1 1/4\"", "despachado": 5, "cod": "9455_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "TABLET ANDROID", "despachado": 1, "cod": "8533_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "TERMOCUPLA DE HORNO", "despachado": 3, "cod": "4476_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "TERMOCUPLA TIPO K-T", "despachado": 6, "cod": "6627_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "TERMOCUPLA UNIVERSAL 60 CM", "despachado": 6, "cod": "9919_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "ERIK ZAPATA", "articulo": "TORNILLO AUTOPERFORANTE 8 X 1 5/8", "despachado": 5, "cod": "9619_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "MANUEL ECHEVERRIA", "articulo": "TABLET ANDROID", "despachado": 1, "cod": "8533_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "A02 LLAVE DE COMBINACION LAVAPLATO", "despachado": 14, "cod": "8927_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "A05 LLAVE MONOMANDO LAVAPLATO", "despachado": 14, "cod": "8930_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "A06 LLAVE MONOMANDO LAVAMANO SIMPLE", "despachado": 8, "cod": "8931_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "A09 LLAVE DE PASO AGUA SO-SO 1/2", "despachado": 5, "cod": "8934_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "A10 LLAVE LAVAMANO SIMPLE", "despachado": 10, "cod": "8935_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "A12 LLAVE DE PASO SO-SO 3/4", "despachado": 5, "cod": "8937_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "A14 FLEXIBLE AGUA 1/2 HI HE 40 CM", "despachado": 5, "cod": "8939_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "A15 FLEXIBLE AGUA 1/2 HI HI 40 CM", "despachado": 5, "cod": "8940_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "ABRAZADERA 1/2", "despachado": 10, "cod": "9468_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "C01 PASTA DE SOLDAR", "despachado": 2, "cod": "8949_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "C02 SOLDADURA DE PLATA 6%", "despachado": 6, "cod": "8950_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "C03 SOLDADURA ESTAÑO", "despachado": 1, "cod": "8951_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "C05 SILICONA BLANCA", "despachado": 9, "cod": "8953_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "C06 SILICONA ALTA TEMPERATURA", "despachado": 5, "cod": "8954_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "C07 TEFLON GAS", "despachado": 3, "cod": "8955_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "C09 HUINCHA AISLADORA", "despachado": 5, "cod": "8957_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "C25 LIJA METAL", "despachado": 5, "cod": "8973_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "C27 TAPACANTO 20MM", "despachado": 25, "cod": "8975_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-26"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "C28 AMARRAS PLASTICAS 300mm", "despachado": 100, "cod": "8976_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "C29 BALON GAS 190G", "despachado": 1, "cod": "8977_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "CUELLO CISNE LAVAFONDO STANDARD 3/4", "despachado": 5, "cod": "10063_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "DESAGUE UTILITY", "despachado": 13, "cod": "9454_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "DESTORNILLADOR TESTER", "despachado": 1, "cod": "10075_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "E01 EXTRACTORES DE AIRE 4", "despachado": 2, "cod": "8980_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "E02 EXTRACTORES DE AIRE 6", "despachado": 2, "cod": "8981_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "E03 EXTRACTORES DE AIRE 8", "despachado": 2, "cod": "8982_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "E07 CORDON TRIPLE", "despachado": 30, "cod": "8986_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "E09 CAJA CHUQUI", "despachado": 5, "cod": "8988_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "E15 INTERRUPTOR SIMPLE EMBUTIDO", "despachado": 5, "cod": "8994_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "E17 INTERRUPTOR DOBLE EMBUTIDO", "despachado": 5, "cod": "8996_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "E19 INTERRUPTOR TRIPLE EMBUTIDO", "despachado": 5, "cod": "8998_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "E21 EQUIPO ESTANCO LED DOBLE 120CM", "despachado": 3, "cod": "9000_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "E22 PANEL LED (REDONDO/CUADRADO)", "despachado": 10, "cod": "9001_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "E23 TUBO LED 9W 60cm.", "despachado": 15, "cod": "9002_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "E24 TUBO LED 18W 120cm.", "despachado": 15, "cod": "9003_5", "med": "un", "tipo": "14Electricidad", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "EMPAQUETADURA ZUELA 1/2", "despachado": 1, "cod": "10071_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "EMPAQUETADURAS DE GOMA", "despachado": 1, "cod": "9556_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "ESCUADRA METALICA 50X50", "despachado": 31, "cod": "10064_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "F03 TARUGO PLASTICO 6MM", "despachado": 3, "cod": "9006_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "F04 TARUGO PLASTICO PALOMA", "despachado": 1, "cod": "9007_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "F05 CANCAMO ABIERTO", "despachado": 4, "cod": "9008_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "F09 CADENA DE ESLABON CORTO", "despachado": 6, "cod": "9012_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-26"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "FLEXIBLE GAS HI-HI 1/2\" 100 CM", "despachado": 6, "cod": "2115_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "FLOWSWITCH CON DESPICHE", "despachado": 3, "cod": "10065_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "FUNDENTE ARGENTA 50GR", "despachado": 2, "cod": "10066_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G01 CODO BRONCE 1/2 SO HE", "despachado": 10, "cod": "9015_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G02 CODO BRONCE 1/2 SO SO", "despachado": 10, "cod": "9016_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G03 CODO BRONCE 1/2 SO HI", "despachado": 10, "cod": "9017_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G07 COPLA BRONCE 1/2 SO SO", "despachado": 5, "cod": "9021_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G09 TEE BRONCE 1/2 SO", "despachado": 10, "cod": "9023_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G12 TERMINAL BRONCE SO HE 1/2", "despachado": 10, "cod": "9026_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G13 TERMINAL SO HI 1/2", "despachado": 10, "cod": "9027_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G14 CODO BRONCE 1/2 HI HE", "despachado": 10, "cod": "9028_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G22 FLEXIBLE GAS 1/2 60CM HI HI", "despachado": 5, "cod": "9036_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G23 LLAVE DE PASO GAS HI HE RECTA 1/2", "despachado": 11, "cod": "9037_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G24 REGULADOR GAS 45K", "despachado": 1, "cod": "9038_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G25 PILAS ALCALINAS D", "despachado": 30, "cod": "9039_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G28 UNION AMERICANA 1/2", "despachado": 5, "cod": "9042_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G29 CAÑERIA DE COBRE", "despachado": 3, "cod": "9043_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "G30 FLEXIBLE REGULADOR GAS 45", "despachado": 15, "cod": "9044_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-26"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "GOMA PARA LLAVE 1/2", "despachado": 1, "cod": "10070_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "M01 ANGULO DE ALUMINO 20X20", "despachado": 2, "cod": "9050_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-26"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "M02 PERFIL CUADRADO DE ALUMINO 20X20", "despachado": 2, "cod": "9051_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-26"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "M05 MALLA MOSQUITERA FIBRA (1 rollo= 3000 Cm)", "despachado": 3, "cod": "9054_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "M06 BISAGRA PUERTA 2.5 MM", "despachado": 10, "cod": "9055_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "M07 TIRADOR PUERTA", "despachado": 10, "cod": "9056_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "MEMBRANA MADEMSA", "despachado": 1, "cod": "10072_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "ORRIN LLAVE MONOMANDO", "despachado": 1, "cod": "10069_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "P05 SPRAY PINTURA GRIS", "despachado": 10, "cod": "9065_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "P06 SPRAY NEGRO ALTA TEMPERATURA", "despachado": 10, "cod": "9066_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "P07 SPRAY ALUMINIO ALTA TEMPERATURA", "despachado": 10, "cod": "9067_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "P08 SPRAY PINTURA AMARILLO", "despachado": 3, "cod": "9068_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "PUNTA PHILLIPS CORTA", "despachado": 1, "cod": "10074_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "PUNTA PHILLIPS LARGA", "despachado": 1, "cod": "10073_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "S02 SIFON RECTO LAVAFONDO", "despachado": 10, "cod": "9076_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "S05 DESAGUE LAVAFONDO", "despachado": 5, "cod": "9079_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "S07 TUBERIA PVC DE 40 MM", "despachado": 3, "cod": "9081_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "S09 CODO SANITARIO PVC 40X87", "despachado": 10, "cod": "9083_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "S10 COPLA PVC 40 MM", "despachado": 10, "cod": "9084_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "S16 TEE PVC 40MM", "despachado": 10, "cod": "9090_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "S21 KIT LLAVE ANGULAR CON FLEX", "despachado": 5, "cod": "9095_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "S22 TAPA WC", "despachado": 8, "cod": "9096_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-05", "2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "SIFON 1 1/2'' SALIDA RECTA", "despachado": 5, "cod": "9727_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "SIFON LAVAMANOS 1 1/4\"", "despachado": 5, "cod": "9455_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "TABLET ANDROID", "despachado": 1, "cod": "8533_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "TERMOCUPLA DE HORNO", "despachado": 3, "cod": "4476_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "TERMOCUPLA TIPO K-T", "despachado": 6, "cod": "6627_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "TERMOCUPLA UNIVERSAL 60 CM", "despachado": 6, "cod": "9919_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "TORNILLO AUTOP P.BCA TRUSS 8X1/2", "despachado": 1, "cod": "5088_5", "med": "un", "tipo": "7Gasfiteria", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "TORNILLO AUTOPERFORANTE 8 X 1 5/8", "despachado": 5, "cod": "9619_5", "med": "un", "tipo": "13Material Menor", "fechas": ["2026-06-18"]}, {"chofer": "RODRIGO MARTINEZ", "articulo": "TORNILLO DE VULCANITA DE 1- 1/2 PULGADA", "despachado": 1, "cod": "9474_5", "med": "un", "tipo": "8Otros", "fechas": ["2026-06-18"]}];
+
+const CHOFERES = [...new Set(PRODUCTS.map(p=>p.chofer))].sort();
+
+let estado = {
+  choferActivo: null,
+  hallazgos: {} // key: chofer||articulo -> {chofer,articulo,cod,med,tipo,despachado,encontrado,fecha}
+};
+
+let articuloSeleccionado = null;
+
+// ---------- persistencia ----------
+async function cargarEstado(){
+  try{
+    const r = await window.storage.get('hallazgos-existencias');
+    if(r && r.value){
+      const parsed = JSON.parse(r.value);
+      estado.hallazgos = parsed.hallazgos || {};
+    }
+  }catch(e){
+    // no hay datos guardados aun
+  }
+}
+async function guardarEstado(){
+  try{
+    await window.storage.set('hallazgos-existencias', JSON.stringify({hallazgos: estado.hallazgos}));
+  }catch(e){
+    console.error('No se pudo guardar', e);
+  }
+}
+
+// ---------- init ----------
+function renderChoferGrid(){
+  const grid = document.getElementById('choferGrid');
+  grid.innerHTML = '';
+  CHOFERES.forEach(ch=>{
+    const count = PRODUCTS.filter(p=>p.chofer===ch).length;
+    const btn = document.createElement('div');
+    btn.className = 'chofer-btn' + (estado.choferActivo===ch ? ' active' : '');
+    btn.innerHTML = `${tituloCaso(ch)}<span class="sub">${count} artículos despachados</span>`;
+    btn.onclick = ()=> seleccionarChofer(ch);
+    grid.appendChild(btn);
+  });
+}
+
+function tituloCaso(s){
+  return s.toLowerCase().split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+}
+
+function seleccionarChofer(ch){
+  estado.choferActivo = ch;
+  cerrarPanel();
+  document.getElementById('searchInput').disabled = false;
+  document.getElementById('searchInput').placeholder = `Escribe el artículo despachado a ${tituloCaso(ch)}...`;
+  document.getElementById('searchInput').value = '';
+  document.getElementById('resultsBox').classList.remove('show');
+  renderChoferGrid();
+  renderHallazgosList();
+}
+
+// ---------- buscador en vivo ----------
+const searchInput = document.getElementById('searchInput');
+const resultsBox = document.getElementById('resultsBox');
+
+searchInput.addEventListener('input', ()=>{
+  const q = searchInput.value.trim().toUpperCase();
+  if(!estado.choferActivo) return;
+  if(q.length===0){ resultsBox.classList.remove('show'); resultsBox.innerHTML=''; return; }
+
+  const matches = PRODUCTS.filter(p=> p.chofer===estado.choferActivo && p.articulo.toUpperCase().includes(q));
+
+  if(matches.length===0){
+    resultsBox.innerHTML = '<div class="no-results">No hay artículos despachados que coincidan.</div>';
+    resultsBox.classList.add('show');
+    return;
+  }
+
+  resultsBox.innerHTML = matches.slice(0,30).map(p=>{
+    const key = p.chofer+'||'+p.articulo;
+    const ya = estado.hallazgos[key];
+    return `<div class="result-item ${ya?'already':''}" onclick="elegirArticulo('${escapeAttr(p.chofer)}','${escapeAttr(p.articulo)}')">
+      <div>
+        <div class="name">${p.articulo}</div>
+        <div class="meta">Cód. ${p.cod||'-'} · ${p.tipo? p.tipo.replace(/^[0-9]+/,'') : ''}</div>
+      </div>
+      <div class="qty">${ya? 'Ya: '+ya.encontrado : p.despachado+' '+(p.med||'un')}</div>
+    </div>`;
+  }).join('');
+  resultsBox.classList.add('show');
+});
+
+function escapeAttr(s){
+  return s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+}
+
+function elegirArticulo(chofer, articulo){
+  const p = PRODUCTS.find(x=>x.chofer===chofer && x.articulo===articulo);
+  if(!p) return;
+  articuloSeleccionado = p;
+  document.getElementById('selArtName').textContent = p.articulo;
+  document.getElementById('selArtMeta').textContent = `Cód. ${p.cod||'-'} · Unidad: ${p.med||'un'} · ${p.tipo? p.tipo.replace(/^[0-9]+/,''):''} · Despachado el ${p.fechas && p.fechas.length? p.fechas.join(', '):'-'}`;
+  document.getElementById('selDespachado').textContent = p.despachado;
+  const key = p.chofer+'||'+p.articulo;
+  const existing = estado.hallazgos[key];
+  document.getElementById('selEncontrado').value = existing ? existing.encontrado : '';
+  document.getElementById('selectedPanel').classList.add('show');
+  resultsBox.classList.remove('show');
+  searchInput.value = p.articulo;
+  document.getElementById('selEncontrado').focus();
+}
+
+function cerrarPanel(){
+  articuloSeleccionado = null;
+  document.getElementById('selectedPanel').classList.remove('show');
+}
+
+async function guardarHallazgo(){
+  if(!articuloSeleccionado) return;
+  const val = document.getElementById('selEncontrado').value;
+  if(val===''){ alert('Ingresa la cantidad encontrada en la camioneta.'); return; }
+  const encontrado = parseFloat(val) || 0;
+  const p = articuloSeleccionado;
+  const key = p.chofer+'||'+p.articulo;
+  estado.hallazgos[key] = {
+    chofer: p.chofer,
+    articulo: p.articulo,
+    cod: p.cod,
+    med: p.med,
+    tipo: p.tipo,
+    despachado: p.despachado,
+    encontrado: encontrado,
+    fechaRegistro: new Date().toISOString().slice(0,10)
+  };
+  await guardarEstado();
+  cerrarPanel();
+  searchInput.value = '';
+  resultsBox.classList.remove('show');
+  searchInput.focus();
+  renderHallazgosList();
+}
+
+function renderHallazgosList(){
+  const list = document.getElementById('hallazgosList');
+  const count = document.getElementById('hallazgosCount');
+  if(!estado.choferActivo){
+    list.innerHTML = '<div class="empty-state">Elige un chofer para ver sus hallazgos.</div>';
+    count.textContent = '';
+    return;
+  }
+  const items = Object.values(estado.hallazgos).filter(h=>h.chofer===estado.choferActivo);
+  count.textContent = items.length ? `(${items.length})` : '';
+  if(items.length===0){
+    list.innerHTML = '<div class="empty-state">Aún no registras hallazgos para este chofer.</div>';
+    return;
+  }
+  list.innerHTML = items.map(h=>{
+    const diff = h.encontrado - h.despachado;
+    const pillClass = diff===0 ? 'pill-diff-ok' : 'pill-diff-bad';
+    const diffTxt = diff===0 ? '✓ OK' : (diff>0 ? '+'+diff : diff);
+    return `<div class="hallazgo-row">
+      <div class="hallazgo-info">
+        <div class="nm">${h.articulo}</div>
+        <div class="mt">Cód. ${h.cod||'-'}</div>
+      </div>
+      <div class="hallazgo-nums">
+        <span class="pill pill-disp">Desp ${h.despachado}</span>
+        <span class="pill pill-found">Cam ${h.encontrado}</span>
+        <span class="pill ${pillClass}">${diffTxt}</span>
+        <button class="del-btn" onclick="borrarHallazgo('${escapeAttr(h.chofer)}','${escapeAttr(h.articulo)}')" title="Eliminar">×</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function borrarHallazgo(chofer, articulo){
+  const key = chofer+'||'+articulo;
+  delete estado.hallazgos[key];
+  await guardarEstado();
+  renderHallazgosList();
+}
+
+// ---------- tabs ----------
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.getElementById('tab-buscar').classList.toggle('hidden', tab!=='buscar');
+  document.getElementById('tab-comparar').classList.toggle('hidden', tab!=='comparar');
+  if(tab==='comparar') renderComparacion();
+}
+
+// ---------- comparación ----------
+let filtroChoferComp = 'TODOS';
+let filtroEstadoComp = 'TODOS';
+
+function renderComparacion(){
+  // summary
+  const totalDespachos = PRODUCTS.length;
+  const totalHallazgos = Object.keys(estado.hallazgos).length;
+  const conDiferencia = Object.values(estado.hallazgos).filter(h=>h.encontrado!==h.despachado).length;
+  const ok = totalHallazgos - conDiferencia;
+
+  document.getElementById('summaryStrip').innerHTML = `
+    <div class="sum-box"><div class="n">${totalDespachos}</div><div class="l">Artículos despachados</div></div>
+    <div class="sum-box"><div class="n">${totalHallazgos}</div><div class="l">Revisados en camioneta</div></div>
+    <div class="sum-box ok"><div class="n">${ok}</div><div class="l">Coinciden</div></div>
+    <div class="sum-box warn"><div class="n">${conDiferencia}</div><div class="l">Con diferencia</div></div>
+  `;
+
+  // chips chofer
+  const chipsChofer = document.getElementById('compFilterChofer');
+  chipsChofer.innerHTML = ['TODOS', ...CHOFERES].map(ch=>
+    `<div class="filter-chip ${filtroChoferComp===ch?'active':''}" onclick="setFiltroChofer('${escapeAttr(ch)}')">${ch==='TODOS'?'Todos los choferes':tituloCaso(ch)}</div>`
+  ).join('');
+
+  const chipsEstado = document.getElementById('compFilterEstado');
+  chipsEstado.innerHTML = ['TODOS','PENDIENTE','OK','DIFERENCIA'].map(e=>{
+    const labels = {TODOS:'Todos',PENDIENTE:'Sin revisar',OK:'Coinciden',DIFERENCIA:'Con diferencia'};
+    return `<div class="filter-chip ${filtroEstadoComp===e?'active':''}" onclick="setFiltroEstado('${e}')">${labels[e]}</div>`;
+  }).join('');
+
+  // table: union of products + any hallazgo not in products (shouldn't happen, but safe)
+  let rows = PRODUCTS.map(p=>{
+    const key = p.chofer+'||'+p.articulo;
+    const h = estado.hallazgos[key];
+    return {
+      chofer: p.chofer,
+      articulo: p.articulo,
+      cod: p.cod,
+      despachado: p.despachado,
+      encontrado: h? h.encontrado : null,
+      revisado: !!h
+    };
+  });
+
+  if(filtroChoferComp!=='TODOS') rows = rows.filter(r=>r.chofer===filtroChoferComp);
+
+  rows = rows.filter(r=>{
+    if(filtroEstadoComp==='TODOS') return true;
+    if(filtroEstadoComp==='PENDIENTE') return !r.revisado;
+    if(filtroEstadoComp==='OK') return r.revisado && r.encontrado===r.despachado;
+    if(filtroEstadoComp==='DIFERENCIA') return r.revisado && r.encontrado!==r.despachado;
+    return true;
+  });
+
+  const tbody = document.getElementById('compTableBody');
+  if(rows.length===0){
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--ink-soft);padding:20px;">Sin resultados para este filtro.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r=>{
+    let rowClass = '';
+    let badge = '<span class="badge badge-pending">Sin revisar</span>';
+    let diffTxt = '—';
+    let encTxt = '—';
+    if(r.revisado){
+      const diff = r.encontrado - r.despachado;
+      encTxt = r.encontrado;
+      diffTxt = diff===0? '0' : (diff>0? '+'+diff : diff);
+      if(diff===0){
+        badge = '<span class="badge badge-ok">Coincide</span>';
+      } else if(diff<0){
+        rowClass='missing';
+        badge = '<span class="badge badge-missing">Falta '+Math.abs(diff)+'</span>';
+      } else {
+        rowClass='extra';
+        badge = '<span class="badge badge-extra">Sobra '+diff+'</span>';
+      }
+    }
+    return `<tr class="${rowClass}">
+      <td>${tituloCaso(r.chofer)}</td>
+      <td>${r.articulo}</td>
+      <td>${r.cod||'-'}</td>
+      <td>${r.despachado}</td>
+      <td>${encTxt}</td>
+      <td>${diffTxt}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function setFiltroChofer(ch){ filtroChoferComp = ch; renderComparacion(); }
+function setFiltroEstado(e){ filtroEstadoComp = e; renderComparacion(); }
+
+// ---------- exportar excel ----------
+function exportarExcel(){
+  const wb = XLSX.utils.book_new();
+
+  const original = PRODUCTS.map(p=>({
+    Chofer: tituloCaso(p.chofer),
+    Articulo: p.articulo,
+    Codigo: p.cod||'',
+    Unidad: p.med||'',
+    Tipo: p.tipo? p.tipo.replace(/^[0-9]+/,'') : '',
+    CantidadDespachada: p.despachado,
+    FechasDespacho: (p.fechas||[]).join(', ')
+  }));
+  const ws1 = XLSX.utils.json_to_sheet(original);
+  XLSX.utils.book_append_sheet(wb, ws1, 'Lista Original');
+
+  const hallazgosArr = PRODUCTS.map(p=>{
+    const key = p.chofer+'||'+p.articulo;
+    const h = estado.hallazgos[key];
+    const diff = h ? (h.encontrado - p.despachado) : null;
+    return {
+      Chofer: tituloCaso(p.chofer),
+      Articulo: p.articulo,
+      Codigo: p.cod||'',
+      CantidadDespachada: p.despachado,
+      CantidadEncontradaCamioneta: h ? h.encontrado : '',
+      Diferencia: diff===null? '' : diff,
+      Estado: !h ? 'Sin revisar' : (diff===0? 'Coincide' : (diff<0? 'Falta '+Math.abs(diff) : 'Sobra '+diff)),
+      FechaRevision: h ? h.fechaRegistro : ''
+    };
+  });
+  const ws2 = XLSX.utils.json_to_sheet(hallazgosArr);
+  XLSX.utils.book_append_sheet(wb, ws2, 'Hallazgos Camioneta');
+
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `control_existencias_${fecha}.xlsx`);
+}
+
+// ---------- reset ----------
+async function resetearTodo(){
+  if(!confirm('¿Seguro que quieres borrar todos los hallazgos registrados? Esta acción no se puede deshacer.')) return;
+  estado.hallazgos = {};
+  await guardarEstado();
+  renderHallazgosList();
+  renderComparacion();
+}
+
+// click fuera del buscador cierra resultados
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('.search-box')){
+    resultsBox.classList.remove('show');
+  }
+});
+
+// ---------- arranque ----------
+(async function init(){
+  await cargarEstado();
+  renderChoferGrid();
+  renderHallazgosList();
+})();
+</script>
+
+</body>
+</html>
