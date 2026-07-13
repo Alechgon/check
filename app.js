@@ -24,7 +24,8 @@ let PRODUCTOS = [];         // catálogo
 let CFG_TEC = {};           // config del técnico (columnas visibles, etc.)
 let pollTimer = null;
 let currentView = 'home';
-let lastGps = null;         // {lat, lon, acc, ts} — capturado en segundo plano
+let lastGps = null;
+let homeFetchTried = false;         // {lat, lon, acc, ts} — capturado en segundo plano
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -144,11 +145,16 @@ async function uploadFile(fileName, mime, base64, tecnico) {
   return postAction({ accion: 'subirArchivoTecnico', fileName, mime, data: base64 });
 }
 
+let refreshInFlight = false;
+let lastFetchOk = true;
 async function refreshData(silent) {
-  const data = await fetchMine();
-  if (!data) { if (!silent) toast('No se pudo actualizar. Revisa la conexión.', 3000); return false; }
-  ALL = data;
-  return true;
+  if (refreshInFlight) return false;
+  refreshInFlight = true;
+  try {
+    const data = await fetchMine();
+    if (!data) { lastFetchOk = false; if (!silent) toast('No se pudo conectar. Reintentando en segundo plano…', 2600); return false; }
+    ALL = data; lastFetchOk = true; return true;
+  } finally { refreshInFlight = false; }
 }
 function startPolling() { stopPolling(); pollTimer = setInterval(async () => { const ok = await refreshData(true); if (ok) rerenderCurrent(); }, POLL_MS); }
 function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
@@ -186,15 +192,21 @@ function renderHome() {
     </div>
     <div class="cfg-fab" id="aCfg" title="Configuración">⚙️</div>
     ${cfgOk ? '' : '<div class="cfg-warn">Toca ⚙️ y <b>elige tu nombre</b> para ver tus casos.</div>'}
-    <p class="note" style="text-align:center;margin-bottom:16px">${cfgOk ? 'Actualizado: ' + new Date().toLocaleTimeString('es-CL') : ''}</p>
+    ${cfgOk && !lastFetchOk ? '<div class="cfg-warn" style="background:rgba(206,66,87,.08);border-color:rgba(206,66,87,.35);color:var(--red-d)">Sin conexión con el servidor. <b id="btnRetry" style="text-decoration:underline;cursor:pointer">Reintentar</b></div>' : ''}
+    <p class="note" style="text-align:center;margin-bottom:16px">${cfgOk ? (lastFetchOk ? 'Actualizado: ' + new Date().toLocaleTimeString('es-CL') : 'Última conexión fallida') : ''}</p>
   </div></div>`;
 
   $('#kPend').onclick = () => cfgOk ? renderGenerales() : needCfg();
   $('#kHist').onclick = () => cfgOk ? renderHistorico() : needCfg();
   $('#kBuscar').onclick = () => cfgOk ? renderBuscar() : needCfg();
   $('#aCfg').onclick = () => askPin(renderConfig);
+  const retry = $('#btnRetry'); if (retry) retry.onclick = async () => { retry.textContent = 'Reintentando…'; homeFetchTried = false; const ok = await refreshData(false); renderHome(); if (ok) toast('Conectado ✓'); };
 
-  if (cfgOk && !ALL.length) refreshData(false).then(() => { if (currentView === 'home') renderHome(); });
+  // cargar datos solo UNA vez; si falla no reintenta en bucle (evita el reinicio infinito)
+  if (cfgOk && !ALL.length && !homeFetchTried) {
+    homeFetchTried = true;
+    refreshData(false).then(ok => { if (ok && currentView === 'home') renderHome(); });
+  }
 }
 function needCfg() { toast('Primero elige tu nombre en ⚙️'); askPin(renderConfig); }
 function bumpNum(id, val) { const el = $('#' + id); if (!el) return; if (el.textContent !== String(val)) { el.textContent = val; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); } }
